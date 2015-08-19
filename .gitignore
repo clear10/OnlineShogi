@@ -44,3 +44,7 @@ Build/
 Assets/Photon Unity Networking*
 Assets/Plugins*
 Assets/Standard Assets*
+
+*.png*
+*.jpg*
+MiniJSON*
