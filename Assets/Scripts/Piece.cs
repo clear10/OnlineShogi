@@ -39,16 +39,22 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	public Kind kind = Kind.Unknown;
 	List<Way> ways;
 	public Vector2 pos;
+	int id;
 	Vector2 origin = new Vector2 (200f,  201.5f);
 	Vector2 limit = new Vector2 (-200f, -198.5f);
 	bool isPromote;
-	public bool isMine;
+	//public bool isMine;
 	public bool isSelected = false;
 	
 	GameObject moveableArea;
 	
 	public float sizeX;
 	public float sizeY;
+
+	PlayerInfo owner;
+
+	public int ID{ get { return id; } }
+	public bool IsPromote{ get { return isPromote; } }
 
 	// Use this for initialization
 	void Start () {
@@ -61,7 +67,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	
 	}
 
-	public void Set(string name, Vector2 p, bool mine, bool promote = false) {
+	public void Set(string name, Vector2 p, bool promote = false) {
 		if(name != "")
 			kind = GetKind (name);
 		ways = GetWays (kind);
@@ -70,7 +76,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 			return;
 		}
 		pos = p;
-		isMine = mine;
+		//isMine = mine;
 		isPromote = promote;
 
 		Image image = GetComponent<Image> ();
@@ -83,6 +89,14 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		pos = p;
 		isPromote = promote;
 		Move (pos);
+	}
+
+	public void SetID(int i) {
+		this.id = i;
+	}
+
+	public void RegistOwner(PlayerInfo o) {
+		this.owner = o;
 	}
 
 	void Promote() {
@@ -112,7 +126,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	}
 
 	Sprite GetSprite() {
-		if (isMine) {
+		if (owner.IsFirst) {
 			switch(kind) {
 			case Kind.fu:
 				return (!isPromote) ? Resources.Load<Sprite>("60x64/sgl08") : Resources.Load<Sprite>("60x64/sgl18");
@@ -271,12 +285,13 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		Vector2 at = GetRenderPosition (tilepos);
 		rect.anchoredPosition = at; //origin - (new Vector2 ((tilepos.x-1) * sizeX, (tilepos.y+0) * sizeY));
 		this.pos = tilepos;
+		GameManager.Instance.UpdatePieces (this, null);
 	}
 
 	public void Select() {
 		if (GameManager.Instance.player.GetRole () == PlayerInfo.Role.Watcher)
 			return;
-		if (!isMine)
+		if (!owner.IsTurn)
 			return;
 		if (moveableArea == null) {
 			moveableArea = Resources.Load<GameObject>("MoveableArea");
@@ -370,6 +385,8 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	}
 
 	GameObject InstantiateMoveableArea(Vector2 p) {
+		if (!owner.IsFirst)
+			p *= -1;
 		Vector2 tmp = new Vector2 (p.x * sizeX, p.y * sizeY);
 		RectTransform r = this.GetComponent<RectTransform> ();
 		Vector2 test = r.anchoredPosition + tmp;

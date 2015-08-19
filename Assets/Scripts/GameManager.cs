@@ -30,7 +30,7 @@ public class GameManager : MonoBehaviour {
 
 	public PlayerInfo player;
 	public PlayerInfo rival;
-	List<Piece> pieces;
+	public List<Piece> pieces;
 	bool isTurnChanged;
 	//string callback = "";
 
@@ -129,6 +129,28 @@ public class GameManager : MonoBehaviour {
 		}
 	}
 
+	public void UpdatePieces(Piece target, Piece get = null) {
+		StartCoroutine (UpdatePieceCoroutine (target, get));
+	}
+
+	IEnumerator UpdatePieceCoroutine(Piece target, Piece get = null) {
+		string req = "plays/update";
+		
+		WWWForm form = new WWWForm ();
+		form.AddField ("play_id", player.PlayId);
+		form.AddField ("user_id", player.UserId);
+		form.AddField("move_id", target.ID);
+		form.AddField ("posx", (int)target.pos.x);
+		form.AddField ("posy", (int)target.pos.y);
+		form.AddField ("promote", target.IsPromote.ToString());
+		form.AddField ("get_id", (get != null) ? get.ID : -1);
+		
+		WWW www = new WWW (server + req, form);
+		yield return www;
+		
+		Debug.Log (www.text);
+	}
+
 	void SetPlayerInfo(string jsonText) {
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
 
@@ -165,6 +187,7 @@ public class GameManager : MonoBehaviour {
 
 		while (!isGameFinish) {
 			GetBattleInfo();
+			yield return new WaitForSeconds(0.5f);
 			GetPiecesInfo();
 			yield return new WaitForSeconds(5f);
 
@@ -307,19 +330,34 @@ public class GameManager : MonoBehaviour {
 			float y = System.Convert.ToSingle(piece["posy"]);
 			Vector2 pos = new Vector2(x, y);
 			bool isPromote = System.Convert.ToBoolean(piece["promote"]);
-			bool isMine = false;
+			//bool isMine = false;
 			int id = System.Convert.ToInt32(piece["owner"]);
-			if(id == player.UserId) isMine = true;
-			if(player.GetRole() == PlayerInfo.Role.Watcher) {
-				if(i==1) first = id;
-				if(first == id) isMine = true;
+			if(i == 1 && flag) {
+				if(id == rival.UserId) {
+					GameObject canvas = GameObject.Find("Canvas");
+					Transform screen = canvas.transform.GetChild(0);
+					screen.Rotate(0, 0, 180f);
+				}
 			}
+			PlayerInfo owner = null;
+			if(id == player.UserId) owner = player;
+			if(id == rival.UserId)  owner = rival;
+			if(owner == null) {
+				Debug.Log("Error!! " + i);
+			}
+			//if(id == player.UserId) isMine = true;
+			//if(player.GetRole() == PlayerInfo.Role.Watcher) {
+			//	if(i==1) first = id;
+			//	if(first == id) isMine = true;
+			//}
 			if(flag) {
 				GameObject go = Instantiate(piecePrefab) as GameObject;
 				RectTransform rect = go.GetComponent<RectTransform>();
 				rect.SetParent(banRect, false);
 				Piece p = go.GetComponent<Piece>();
-				p.Set(name, pos, isMine, isPromote);
+				p.RegistOwner(owner);
+				p.SetID(i);
+				p.Set(name, pos, isPromote);
 				pieces.Add(p);
 			} else {
 				Piece p = pieces[i-1];
@@ -329,22 +367,4 @@ public class GameManager : MonoBehaviour {
 
 	}
 
-	// TODO
-	/**
-	void UpdatePieces() {
-		int playId = player.PlayId;
-		string req = "plays/" + playId.ToString() + "/pieces";
-		StartCoroutine (RequestServer (req));
-		
-		WWWForm form = new WWWForm ();
-		form.AddField ("play_id", TODO);
-		form.AddField ("user_id", TODO);
-		
-		WWW www = new WWW (server + req, form);
-		yield return www;
-		
-		Debug.Log (www.text);
-		SetPlayerInfo (www.text);
-	}
-	**/
 }
