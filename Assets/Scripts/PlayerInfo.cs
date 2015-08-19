@@ -25,10 +25,12 @@ public class PlayerInfo {
 	State state;
 	Role role;
 	bool isFirst;
+	bool isTurn;
 
 	public int UserId{ get { return userId; } }
 	public int PlayId{ get { return playId; } }
 	public bool IsFirst{ get { return isFirst; } }
+	public bool IsTurn{ get { return isTurn; } }
 	public string Name{ get { return name; } }
 
 	public State GetState() {
@@ -55,6 +57,7 @@ public class PlayerInfo {
 		this.state = State.Unknown;
 		this.role = Role.Unknown;
 		this.isFirst = false;
+		this.isTurn = false;
 	}
 
 	public PlayerInfo(int userId, int playId, int state, int role) {
@@ -63,10 +66,15 @@ public class PlayerInfo {
 		this.state = (State)state;
 		this.role = (Role)role;
 		this.isFirst = false;
+		this.isTurn = false;
 	}
 
 	public void SetOrder(bool isFirst) {
 		this.isFirst = isFirst;
+	}
+
+	public void SetTurn(bool flag) {
+		isTurn = flag;
 	}
 
 	public string Dump() {

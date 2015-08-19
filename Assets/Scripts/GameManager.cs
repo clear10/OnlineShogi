@@ -31,6 +31,7 @@ public class GameManager : MonoBehaviour {
 	public PlayerInfo player;
 	public PlayerInfo rival;
 	List<Piece> pieces;
+	bool isTurnChanged;
 	//string callback = "";
 
 	void Awake() {
@@ -52,6 +53,7 @@ public class GameManager : MonoBehaviour {
 		button.onClick.RemoveAllListeners ();
 		button.onClick.AddListener (() => instance.JoinRoom ());
 		dbg = canvas.FindChild ("debugLog").GetComponent<DebugText> ();
+		isTurnChanged = false;
 		if(piecePrefab == null)
 			piecePrefab = Resources.Load<GameObject> ("piece");
 	}
@@ -163,8 +165,11 @@ public class GameManager : MonoBehaviour {
 
 		while (!isGameFinish) {
 			GetBattleInfo();
+			GetPiecesInfo();
 			yield return new WaitForSeconds(5f);
-			// TODO
+
+			if(!isTurnChanged) continue;
+
 		}
 	}
 
@@ -196,7 +201,7 @@ public class GameManager : MonoBehaviour {
 	void GetRoomState() {
 		int playId = player.PlayId;
 		string req = "plays/" + playId.ToString() + "/state";
-		StartCoroutine (RequestServer (req));
+		StartCoroutine (RequestServer (req, ParseRoomState));
 	}
 	
 	void GetUserInfo() {
@@ -208,7 +213,7 @@ public class GameManager : MonoBehaviour {
 	void GetBattleInfo() {
 		int playId = player.PlayId;
 		string req = "plays/" + playId.ToString();
-		StartCoroutine (RequestServer (req));
+		StartCoroutine (RequestServer (req, ParseBattleInfo));
 	}
 
 	void GetWinner() {
@@ -226,6 +231,7 @@ public class GameManager : MonoBehaviour {
 	void ParseRoomState(string jsonText) {
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
 		string state = json ["state"].ToString ();
+		Debug.Log (state);
 		int n = (state == "playing") ? 2 : 1;
 		player.SetState (n);
 	}
@@ -266,6 +272,24 @@ public class GameManager : MonoBehaviour {
 		rival.SetName (name);
 	}
 
+	void ParseBattleInfo(string jsonText) {
+		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
+		int id = System.Convert.ToInt32 (json ["turn_player"]);
+		if (id == player.UserId && !player.IsTurn) {
+			player.SetTurn(true);
+			rival.SetTurn(false);
+			isTurnChanged = true;
+			return;
+		} else if (id == rival.UserId && !rival.IsTurn) {
+			player.SetTurn(false);
+			rival.SetTurn(true);
+			isTurnChanged = true;
+			return;
+		}
+
+		isTurnChanged = false;
+	}
+
 	void ParsePieces(string jsonText) {
 
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
@@ -298,7 +322,7 @@ public class GameManager : MonoBehaviour {
 				p.Set(name, pos, isMine, isPromote);
 				pieces.Add(p);
 			} else {
-				Piece p = pieces[i];
+				Piece p = pieces[i-1];
 				p.Set(pos, isPromote);
 			}
 		}
