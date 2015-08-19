@@ -45,6 +45,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	bool isPromote;
 	//public bool isMine;
 	public bool isSelected = false;
+	public bool Active{ get; set; }
 	
 	GameObject moveableArea;
 	
@@ -78,6 +79,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		pos = p;
 		//isMine = mine;
 		isPromote = promote;
+		Active = true;
 
 		Image image = GetComponent<Image> ();
 		image.sprite = GetSprite ();
@@ -251,9 +253,15 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		else {
 			DestroyAllChildren ();
 			if(this.gameObject == eventData.pointerEnter) return;
-			RectTransform r1 = eventData.pointerEnter.GetComponent<RectTransform>();
-			RectTransform r2 = this.GetComponent<RectTransform>();
-			Vector2 p = GetTilePosition(r1.anchoredPosition + r2.anchoredPosition);
+			Vector2 p;
+			if(eventData.pointerEnter.GetComponent<Piece>() == null) {
+				RectTransform r1 = eventData.pointerEnter.GetComponent<RectTransform>();
+				RectTransform r2 = this.GetComponent<RectTransform>();
+				p = GetTilePosition(r1.anchoredPosition + r2.anchoredPosition);
+			} else {
+				RectTransform r = eventData.pointerEnter.GetComponent<RectTransform>();
+				p = GetTilePosition(r.anchoredPosition);
+			}
 			Debug.Log(p);
 			Move(p);
 		}
@@ -281,17 +289,29 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	}
 
 	void Move(Vector2 tilepos) {
+		if (!this.Active)
+			return;
 		RectTransform rect = GetComponent<RectTransform> ();
 		Vector2 at = GetRenderPosition (tilepos);
+		if (rect.anchoredPosition == at)
+			return;
 		rect.anchoredPosition = at; //origin - (new Vector2 ((tilepos.x-1) * sizeX, (tilepos.y+0) * sizeY));
 		this.pos = tilepos;
-		GameManager.Instance.UpdatePieces (this, null);
+		Piece get = GameBoard.Instance.SetPiece (this);
+		GameManager.Instance.UpdatePieces (this, get);
+		if(get != null) {
+			get.DestroyAllChildren();
+			get.Move(new Vector2(-2, 0));
+			get.Active = false;
+		}
 	}
 
 	public void Select() {
 		if (GameManager.Instance.player.GetRole () == PlayerInfo.Role.Watcher)
 			return;
 		if (!owner.IsTurn)
+			return;
+		if (!GameManager.Instance.player.IsTurn)
 			return;
 		if (moveableArea == null) {
 			moveableArea = Resources.Load<GameObject>("MoveableArea");

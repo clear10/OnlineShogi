@@ -22,7 +22,7 @@ public class GameManager : MonoBehaviour {
 	[SerializeField] InputField roomTxt;
 	[SerializeField] Button button;
 
-	[SerializeField] DebugText dbg;
+	//[SerializeField] DebugText dbg;
 	[SerializeField] RectTransform banRect;
 	[SerializeField] GameObject piecePrefab;
 
@@ -52,8 +52,9 @@ public class GameManager : MonoBehaviour {
 		button = canvas.FindChild ("Button").GetComponent<Button> ();
 		button.onClick.RemoveAllListeners ();
 		button.onClick.AddListener (() => instance.JoinRoom ());
-		dbg = canvas.FindChild ("debugLog").GetComponent<DebugText> ();
+		//dbg = canvas.FindChild ("debugLog").GetComponent<DebugText> ();
 		isTurnChanged = false;
+		pieces = new List<Piece> ();
 		if(piecePrefab == null)
 			piecePrefab = Resources.Load<GameObject> ("piece");
 	}
@@ -62,7 +63,6 @@ public class GameManager : MonoBehaviour {
 	void Start () {
 		player = new PlayerInfo ();
 		rival = new PlayerInfo ();
-		pieces = new List<Piece> ();
 	}
 	
 	// Update is called once per frame
@@ -317,7 +317,6 @@ public class GameManager : MonoBehaviour {
 
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
 		bool flag = pieces.Count == 0;
-		int first = 0;
 		if (banRect == null) 
 			banRect = GameObject.Find ("Canvas").transform.GetChild (0).GetChild (0).GetComponent<RectTransform> ();
 
@@ -361,7 +360,8 @@ public class GameManager : MonoBehaviour {
 				pieces.Add(p);
 			} else {
 				Piece p = pieces[i-1];
-				p.Set(pos, isPromote);
+				if(p.Active)
+					p.Set(pos, isPromote);
 			}
 		}
 
