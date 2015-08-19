@@ -274,6 +274,8 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	}
 
 	public void Select() {
+		if (GameManager.Instance.player.GetRole () == PlayerInfo.Role.Watcher)
+			return;
 		if (!isMine)
 			return;
 		if (moveableArea == null) {

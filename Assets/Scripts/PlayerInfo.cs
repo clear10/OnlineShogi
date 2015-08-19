@@ -20,6 +20,8 @@ public class PlayerInfo {
 	int userId;
 	int playId;
 
+	string name;
+
 	State state;
 	Role role;
 	bool isFirst;
@@ -27,6 +29,7 @@ public class PlayerInfo {
 	public int UserId{ get { return userId; } }
 	public int PlayId{ get { return playId; } }
 	public bool IsFirst{ get { return isFirst; } }
+	public string Name{ get { return name; } }
 
 	public State GetState() {
 		return state;
@@ -34,6 +37,16 @@ public class PlayerInfo {
 
 	public Role GetRole() {
 		return role;
+	}
+
+	public void SetState(int i) {
+		if (i > 2)
+			return;
+		this.state = (State)i;
+	}
+
+	public void SetName(string s) {
+		this.name = s;
 	}
 
 	public PlayerInfo() {

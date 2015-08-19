@@ -6,8 +6,21 @@ using MiniJSON;
 
 public class GameManager : MonoBehaviour {
 
+	static GameManager instance;
+
+	public static GameManager Instance {
+		get {
+			if(instance == null) {
+				GameObject go = new GameObject("GameManager");
+				instance = go.AddComponent<GameManager>();
+			}
+			return instance;
+		}
+	}
+
 	[SerializeField] InputField nameTxt;
 	[SerializeField] InputField roomTxt;
+	[SerializeField] Button button;
 
 	[SerializeField] DebugText dbg;
 	[SerializeField] RectTransform banRect;
@@ -16,16 +29,37 @@ public class GameManager : MonoBehaviour {
 	const string server = "http://192.168.3.83:3000/";
 
 	public PlayerInfo player;
-	public List<Piece> pieces;
+	public PlayerInfo rival;
+	List<Piece> pieces;
 	//string callback = "";
 
 	void Awake() {
-		DontDestroyOnLoad (this.gameObject);
+		if (instance != null) {
+			Destroy (this.gameObject);
+			return;
+		}
+
+		instance = this;
+		Init ();
+		DontDestroyOnLoad (instance.gameObject);
+	}
+
+	void Init() {
+		Transform canvas = GameObject.Find ("Canvas").transform;
+		nameTxt = canvas.FindChild ("NameField").GetComponent<InputField> ();
+		roomTxt = canvas.FindChild ("RoomField").GetComponent<InputField> ();
+		button = canvas.FindChild ("Button").GetComponent<Button> ();
+		button.onClick.RemoveAllListeners ();
+		button.onClick.AddListener (() => instance.JoinRoom ());
+		dbg = canvas.FindChild ("debugLog").GetComponent<DebugText> ();
+		if(piecePrefab == null)
+			piecePrefab = Resources.Load<GameObject> ("piece");
 	}
 
 	// Use this for initialization
 	void Start () {
 		player = new PlayerInfo ();
+		rival = new PlayerInfo ();
 		pieces = new List<Piece> ();
 	}
 	
@@ -33,6 +67,7 @@ public class GameManager : MonoBehaviour {
 	void Update () {
 		if (Input.GetKeyDown (KeyCode.Space)) {
 			//ParsePieces(callback);
+			LeaveRoom();
 		}
 	}
 
@@ -41,6 +76,7 @@ public class GameManager : MonoBehaviour {
 	}
 	
 	public void LeaveRoom() {
+		StopAllCoroutines ();
 		StartCoroutine (LogOut ());
 	}
 
@@ -80,7 +116,15 @@ public class GameManager : MonoBehaviour {
 		WWW www = new WWW (server + req, form);
 		yield return www;
 		
-		Debug.Log (www.text);
+		//Debug.Log (www.text);
+		if (www.text == "[\"true\"]") {
+			Debug.Log("Succesfully Logouted!");
+			string s = Application.loadedLevelName;
+			Application.LoadLevel("Login");
+			while(Application.loadedLevelName == s) yield return null;
+
+			Init();
+		}
 	}
 
 	void SetPlayerInfo(string jsonText) {
@@ -100,15 +144,31 @@ public class GameManager : MonoBehaviour {
 
 	void GoSceneMain() {
 		Application.LoadLevel ("Main");
-		//GetRoomState ();
-		GetUserInfo ();
+		GetRoomState ();
+		StartCoroutine (WaitForPlayer ());
+		//GetUserInfo ();
 		//GetBattleInfo ();
 		//GetWinner ();
-		GetPiecesInfo ();
+		//GetPiecesInfo ();
 	}
 
 	void GameStart() {
+		GetUserInfo ();
+		StartCoroutine (GameLoopCoroutine ());
 	}
+
+	IEnumerator GameLoopCoroutine() {
+		while (rival == null)
+			yield return null;
+
+		while (!isGameFinish) {
+			GetBattleInfo();
+			yield return new WaitForSeconds(5f);
+			// TODO
+		}
+	}
+
+	bool isGameFinish{ get { return false; } }
 
 	void OnApplicationQuit() {
 		LeaveRoom ();
@@ -163,14 +223,47 @@ public class GameManager : MonoBehaviour {
 		StartCoroutine (RequestServer (req, ParsePieces));
 	}
 
+	void ParseRoomState(string jsonText) {
+		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
+		string state = json ["state"].ToString ();
+		int n = (state == "playing") ? 2 : 1;
+		player.SetState (n);
+	}
+
+	IEnumerator WaitForPlayer() {
+		while (player.GetState() != PlayerInfo.State.Playing) {
+			GetRoomState();
+			yield return new WaitForSeconds(3f);
+		}
+
+		GameStart ();
+	}
+
 	void ParseUserInfo(string jsonText) {
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
 		Dictionary<string, object> info = (Dictionary<string, object>)json ["first_player"];
 		int id = System.Convert.ToInt32 (info ["user_id"]);
-		if (player.UserId == id)
+		string rivalName;
+		int rivalId;
+		if (player.UserId == id) {
 			player.SetOrder (true);
-		else
+			info = (Dictionary<string, object>)json["last_player"];
+			rivalId = System.Convert.ToInt32 (info ["user_id"]);
+			rivalName = info["name"].ToString();
+		} else {
 			player.SetOrder (false);
+			rivalId = id;
+			rivalName = info["name"].ToString();
+			info = (Dictionary<string, object>)json["last_player"];
+			player.SetName(info["name"].ToString());
+		}
+		CreateRivalInfo (rivalId, player.PlayId, rivalName, !player.IsFirst);
+	}
+
+	void CreateRivalInfo(int userId, int playId, string name, bool isFirst) {
+		rival = new PlayerInfo (userId, playId, 2, 1);
+		rival.SetOrder (isFirst);
+		rival.SetName (name);
 	}
 
 	void ParsePieces(string jsonText) {
