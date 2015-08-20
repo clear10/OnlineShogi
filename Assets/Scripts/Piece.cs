@@ -324,6 +324,8 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		if(get != null) {
 			//get.DestroyAllChildren();
 			//get.Move(new Vector2(-2, 0));
+			//get.kind
+			this.owner.GetPiece(get);
 			get.Active = false;
 			get.gameObject.SetActive(false);
 		}

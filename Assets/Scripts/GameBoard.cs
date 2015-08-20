@@ -68,7 +68,7 @@ public class GameBoard : MonoBehaviour {
 		table [i] = p;
 
 		//
-		Dump ();
+		//Dump ();
 		//
 
 		return ret;

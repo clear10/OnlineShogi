@@ -31,7 +31,11 @@ public class GameManager : MonoBehaviour {
 	public PlayerInfo player;
 	public PlayerInfo rival;
 	public List<Piece> pieces;
-	bool isControllable;
+
+	//UIController myUI;
+	//UIController yourUI;
+
+	//bool isControllable;
 	//string callback = "";
 
 	void Awake() {
@@ -129,6 +133,14 @@ public class GameManager : MonoBehaviour {
 		}
 	}
 
+	public void RegistUI(UIController ui, bool isMine) {
+		//Debug.LogError ("GM RegistUI");
+		if (isMine)
+			player.RegistUI (ui); //myUI = ui;
+		else
+			rival.RegistUI (ui); //yourUI = ui;
+	}
+
 	public void UpdatePieces(Piece target, Piece get = null) {
 		StartCoroutine (UpdatePieceCoroutine (target, get));
 	}
@@ -148,8 +160,8 @@ public class GameManager : MonoBehaviour {
 		WWW www = new WWW (server + req, form);
 		yield return www;
 		
-		Debug.LogError (www.text);
-		isControllable = false;
+		Debug.Log (www.text);
+		//isControllable = false;
 	}
 
 	void SetPlayerInfo(string jsonText) {
@@ -185,6 +197,16 @@ public class GameManager : MonoBehaviour {
 	IEnumerator GameLoopCoroutine() {
 		while (rival == null)
 			yield return null;
+
+		yield return null;
+
+		GameObject canvas = GameObject.Find ("Canvas");
+		GameObject myUIObj = canvas.transform.FindChild ("MyUI").gameObject;
+		GameObject yourUIObj = canvas.transform.FindChild ("YourUI").gameObject;
+		UIController my = myUIObj.GetComponent<UIController> ();
+		UIController your = yourUIObj.GetComponent<UIController> ();
+		RegistUI (my, true);
+		RegistUI (your, false);
 
 		IsGameFinish = false;
 
@@ -339,7 +361,7 @@ public class GameManager : MonoBehaviour {
 			if(id == player.UserId) owner = player;
 			if(id == rival.UserId)  owner = rival;
 			if(owner == null) {
-				Debug.Log("Error!! " + i);
+				Debug.LogError("Error!! " + i);
 			}
 			//if(id == player.UserId) isMine = true;
 			//if(player.GetRole() == PlayerInfo.Role.Watcher) {
@@ -357,8 +379,15 @@ public class GameManager : MonoBehaviour {
 				pieces.Add(p);
 			} else {
 				Piece p = pieces[i-1];
-				if(p.Active)
+				if(p.Active) {
 					p.Set(pos, isPromote);
+					if(pos == Vector2.zero) {
+						p.Active = false;
+						p.gameObject.SetActive(false);
+						rival.GetPiece(p);
+						//continue;
+					}
+				}
 			}
 		}
 		if (flag)

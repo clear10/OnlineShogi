@@ -27,6 +27,10 @@ public class PlayerInfo {
 	bool isFirst;
 	bool isTurn;
 
+	UIController ui;
+
+	int[] holds = new int[7]{0, 0, 0, 0, 0, 0, 0};
+
 	public int UserId{ get { return userId; } }
 	public int PlayId{ get { return playId; } }
 	public bool IsFirst{ get { return isFirst; } }
@@ -49,6 +53,43 @@ public class PlayerInfo {
 
 	public void SetName(string s) {
 		this.name = s;
+	}
+
+	public void RegistUI(UIController ui) {
+		//Debug.LogError ("UI is " + ui);
+		this.ui = ui;
+	}
+
+	public void GetPiece(Piece p) {
+		int num = 0;
+		Piece.Kind k = p.kind;
+		switch (k) {
+		case Piece.Kind.fu:
+			num = ++holds[0];
+			break;
+		case Piece.Kind.kyosha:
+			num = ++holds[1];
+			break;
+		case Piece.Kind.keima:
+			num = ++holds[2];
+			break;
+		case Piece.Kind.gin:
+			num = ++holds[3];
+			break;
+		case Piece.Kind.kin:
+			num = ++holds[4];
+			break;
+		case Piece.Kind.hisya:
+			num = ++holds[5];
+			break;
+		case Piece.Kind.kaku:
+			num = ++holds[6];
+			break;
+		default:
+			break;
+		}
+
+		ui.UpdateUI (k, num);
 	}
 
 	public PlayerInfo() {
