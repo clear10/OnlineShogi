@@ -31,7 +31,7 @@ public class GameManager : MonoBehaviour {
 	public PlayerInfo player;
 	public PlayerInfo rival;
 	public List<Piece> pieces;
-	bool isTurnChanged;
+	bool isControllable;
 	//string callback = "";
 
 	void Awake() {
@@ -53,7 +53,7 @@ public class GameManager : MonoBehaviour {
 		button.onClick.RemoveAllListeners ();
 		button.onClick.AddListener (() => instance.JoinRoom ());
 		//dbg = canvas.FindChild ("debugLog").GetComponent<DebugText> ();
-		isTurnChanged = false;
+		//isTurnChanged = false;
 		pieces = new List<Piece> ();
 		if(piecePrefab == null)
 			piecePrefab = Resources.Load<GameObject> ("piece");
@@ -148,7 +148,8 @@ public class GameManager : MonoBehaviour {
 		WWW www = new WWW (server + req, form);
 		yield return www;
 		
-		Debug.Log (www.text);
+		Debug.LogError (www.text);
+		isControllable = false;
 	}
 
 	void SetPlayerInfo(string jsonText) {
@@ -185,18 +186,20 @@ public class GameManager : MonoBehaviour {
 		while (rival == null)
 			yield return null;
 
-		while (!isGameFinish) {
+		IsGameFinish = false;
+
+		while (!IsGameFinish) {
 			GetBattleInfo();
 			yield return new WaitForSeconds(0.5f);
 			GetPiecesInfo();
-			yield return new WaitForSeconds(5f);
+			yield return new WaitForSeconds(1f);
 
-			if(!isTurnChanged) continue;
+			//if(!isTurnChanged) continue;
 
 		}
 	}
 
-	bool isGameFinish{ get { return false; } }
+	bool IsGameFinish{ get; set; }
 
 	void OnApplicationQuit() {
 		LeaveRoom ();
@@ -211,15 +214,6 @@ public class GameManager : MonoBehaviour {
 		if(call != null)
 			call (www.text);
 	}
-	/**
-	IEnumerator RequestServer(string req) {		
-		WWW www = new WWW (server + req);
-		yield return www;
-		
-		//this.callback = www.text;
-		Debug.Log (www.text);
-	}
-	**/
 
 	void GetRoomState() {
 		int playId = player.PlayId;
@@ -262,7 +256,7 @@ public class GameManager : MonoBehaviour {
 	IEnumerator WaitForPlayer() {
 		while (player.GetState() != PlayerInfo.State.Playing) {
 			GetRoomState();
-			yield return new WaitForSeconds(3f);
+			yield return new WaitForSeconds(1f);
 		}
 
 		GameStart ();
@@ -297,20 +291,23 @@ public class GameManager : MonoBehaviour {
 
 	void ParseBattleInfo(string jsonText) {
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
+		if (json ["state"].ToString () == "finish" || json["state"].ToString() == "exit") {
+			IsGameFinish = true;
+		}
 		int id = System.Convert.ToInt32 (json ["turn_player"]);
-		if (id == player.UserId && !player.IsTurn) {
+		if (id == player.UserId) {
 			player.SetTurn(true);
 			rival.SetTurn(false);
-			isTurnChanged = true;
+			//isTurnChanged = true;
 			return;
-		} else if (id == rival.UserId && !rival.IsTurn) {
+		} else if (id == rival.UserId) {
 			player.SetTurn(false);
 			rival.SetTurn(true);
-			isTurnChanged = true;
+			//isTurnChanged = true;
 			return;
 		}
 
-		isTurnChanged = false;
+		//isTurnChanged = false;
 	}
 
 	void ParsePieces(string jsonText) {
@@ -364,6 +361,8 @@ public class GameManager : MonoBehaviour {
 					p.Set(pos, isPromote);
 			}
 		}
+		if (flag)
+			GameBoard.Instance.Init (pieces);
 
 	}
 

@@ -76,7 +76,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 			Debug.LogError("Kind Error!");
 			return;
 		}
-		pos = p;
+		//pos = p;
 		//isMine = mine;
 		isPromote = promote;
 		Active = true;
@@ -84,13 +84,13 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		Image image = GetComponent<Image> ();
 		image.sprite = GetSprite ();
 
-		Move (pos);
+		Move (p, false);
 	}
 
 	public void Set(Vector2 p, bool promote) {
-		pos = p;
+		//pos = p;
 		isPromote = promote;
-		Move (pos);
+		Move (p, false);
 	}
 
 	public void SetID(int i) {
@@ -247,13 +247,25 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	}
 
 	public void OnPointerClick(PointerEventData eventData) {
+		if (GameManager.Instance.player.GetRole () == PlayerInfo.Role.Watcher)
+			return;
+		if (!owner.IsTurn)
+			return;
+		if (!GameManager.Instance.player.IsTurn)
+			return;
 		isSelected = !isSelected;
-		if (isSelected)
+		if (isSelected) {
 			Select ();
-		else {
+			return;
+		}
+
+		DestroyAllChildren ();
+			/**
 			DestroyAllChildren ();
 			if(this.gameObject == eventData.pointerEnter) return;
 			Vector2 p;
+
+
 			if(eventData.pointerEnter.GetComponent<Piece>() == null) {
 				RectTransform r1 = eventData.pointerEnter.GetComponent<RectTransform>();
 				RectTransform r2 = this.GetComponent<RectTransform>();
@@ -264,10 +276,10 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 			}
 			Debug.Log(p);
 			Move(p);
-		}
+			**/
 	}
 
-	Vector2 GetTilePosition(Vector2 rp) {
+	public Vector2 GetTilePosition(Vector2 rp) {
 		int i = 0;
 		int j = 0;
 		for (float y = limit.y-sizeY/2f; y < origin.y+sizeY/2f; y+=sizeY) {
@@ -283,48 +295,75 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		return new Vector2 (10-j, 10-i);
 	}
 
-	Vector2 GetRenderPosition(Vector2 tp) {
+	public Vector2 GetRenderPosition(Vector2 tp) {
 		Vector2 target = origin - (new Vector2 ((tp.x - 1) * sizeX, (tp.y - 1) * sizeY));
 		return target;
 	}
 
-	void Move(Vector2 tilepos) {
+	public void Move(Vector2 tilepos, bool flag = true) {
 		if (!this.Active)
 			return;
 		RectTransform rect = GetComponent<RectTransform> ();
 		Vector2 at = GetRenderPosition (tilepos);
 		if (rect.anchoredPosition == at)
 			return;
+
+		DestroyAllChildren ();
 		rect.anchoredPosition = at; //origin - (new Vector2 ((tilepos.x-1) * sizeX, (tilepos.y+0) * sizeY));
+
+		if (tilepos == this.pos)
+			return;
+
+		GameBoard.Instance.SetPiece (this.pos, null);
 		this.pos = tilepos;
 		Piece get = GameBoard.Instance.SetPiece (this);
+
+		if (!flag)
+			return;
 		GameManager.Instance.UpdatePieces (this, get);
 		if(get != null) {
-			get.DestroyAllChildren();
-			get.Move(new Vector2(-2, 0));
+			//get.DestroyAllChildren();
+			//get.Move(new Vector2(-2, 0));
 			get.Active = false;
+			get.gameObject.SetActive(false);
 		}
 	}
 
-	public void Select() {
-		if (GameManager.Instance.player.GetRole () == PlayerInfo.Role.Watcher)
-			return;
-		if (!owner.IsTurn)
-			return;
-		if (!GameManager.Instance.player.IsTurn)
-			return;
+	public void Select() {		
+		Transform parent = transform.parent;
+		Transform target = parent.GetChild (parent.childCount - 1);
+		string s = target.gameObject.name;
+		if (s == "MoveableAreas") {
+			if(target.childCount > 0) {
+				MoveableArea ma = target.GetChild(0).GetComponent<MoveableArea>();
+				ma.Close();
+			}
+			DestroyAllChildren();
+		}
+
 		if (moveableArea == null) {
 			moveableArea = Resources.Load<GameObject>("MoveableArea");
 		}
 		List<GameObject> objs = new List<GameObject> ();
+		GameObject area = new GameObject ("MoveableAreas");
+		area.transform.SetParent (this.transform.parent, false);
+		area.transform.localPosition = this.transform.localPosition;
 		foreach (Way w in ways) {
-			List<GameObject> tmp = InstantiateMoveableArea(w);
+			List<GameObject> tmp = InstantiateMoveableArea(area.transform, w);
 			if(tmp != null)
 				objs.AddRange(tmp);
 		}
 	}
+	
+	public void UnSelect() {
+		this.isSelected = false;
+	}
 
-	List<GameObject> InstantiateMoveableArea(Way w) {
+	void OnDestroy() {
+		Debug.Log ("Destroyed No." + this.ID);
+	}
+
+	List<GameObject> InstantiateMoveableArea(Transform parent, Way w) {
 		List<GameObject> objs = new List<GameObject> ();
 		Vector2 p = Vector2.zero;
 		switch (w) {
@@ -357,7 +396,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		}
 		if (p != Vector2.zero) {
 			//p += pos;
-			GameObject go = InstantiateMoveableArea(p);
+			GameObject go = InstantiateMoveableArea(parent, p);
 			if(go == null) return null;
 			objs.Add(go);
 			return objs;
@@ -396,7 +435,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 
 		for (int j=0; j<ps.Count; j++) {
 			//ps[j] += pos;
-			GameObject go = InstantiateMoveableArea(ps[j]);
+			GameObject go = InstantiateMoveableArea(parent, ps[j]);
 			if(go != null)
 				objs.Add(go);
 		}
@@ -404,30 +443,37 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		return objs;
 	}
 
-	GameObject InstantiateMoveableArea(Vector2 p) {
+	GameObject InstantiateMoveableArea(Transform parent, Vector2 p) {
 		if (!owner.IsFirst)
 			p *= -1;
-		Vector2 tmp = new Vector2 (p.x * sizeX, p.y * sizeY);
-		RectTransform r = this.GetComponent<RectTransform> ();
-		Vector2 test = r.anchoredPosition + tmp;
-		if (test.x > origin.x || test.x < limit.x)
+		Vector2 target = this.pos - p;
+		if (target.x < 1 || target.x > 9)
 			return null;
-		if (test.y > origin.y || test.y < limit.y)
+		if (target.y < 1 || target.y > 9)
 			return null;
+		Piece piece = GameBoard.Instance.GetPiece (target);
+		if (piece != null) {
+			if (piece.owner == this.owner)
+				return null;
+		}
 
 		GameObject go;
 		RectTransform rect;
 		go = Instantiate (moveableArea) as GameObject;
 		rect = go.GetComponent<RectTransform> ();
-		rect.SetParent(this.transform, false);
-		rect.anchoredPosition = tmp;
+		rect.SetParent(parent, false);
+		rect.anchoredPosition = new Vector2(p.x * sizeX, p.y * sizeY);
+		MoveableArea area = go.GetComponent<MoveableArea> ();
+		area.RegistPiece (this);
 		return go;
 	}
 
 	void DestroyAllChildren() {
-		foreach (Transform t in this.transform) {
-			Destroy(t.gameObject);
-		}
+		Transform parent = transform.parent;
+		Transform target = parent.GetChild (parent.childCount - 1);
+		string s = target.gameObject.name;
+		if (s == "MoveableAreas")
+			Destroy (target.gameObject);
 	}
 
 }
