@@ -409,24 +409,59 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 			ps.Add(new Vector2(1,  2));
 			break;
 		case Way.ForwardLine:
+			bool fw = true;
 			for(int y = 1; y < 10; y++) {
-				ps.Add(new Vector2(0, y));
+				Vector2 relative = new Vector2(0, y);
+				fw = IsMoveable(relative, ps);
+				if(!fw) break;
 			}
 			break;
 		case Way.Oblique:
+			bool fl = true;
+			bool fr = true;
+			bool bl = true;
+			bool br = true;
 			for(int i= 1; i < 10; i++) {
-				ps.Add(new Vector2( i,  i));
-				ps.Add(new Vector2(-i,  i));
-				ps.Add(new Vector2( i, -i));
-				ps.Add(new Vector2(-i, -i));
+				if(fr) {
+					Vector2 relative = new Vector2(i, i);
+					fr = IsMoveable(relative, ps);
+				}
+				if(fl) {
+					Vector2 relative = new Vector2(-i, i);
+					fl = IsMoveable(relative, ps);
+				}
+				if(br) {
+					Vector2 relative = new Vector2(i, -i);
+					br = IsMoveable(relative, ps);
+				}
+				if(bl) {
+					Vector2 relative = new Vector2(-i, -i);
+					bl = IsMoveable(relative, ps);
+				}
 			}
 			break;
 		case Way.Cross:
+			bool left = true;
+			bool right = true;
+			bool fd = true;
+			bool bk = true;
 			for(int i = 1; i<10; i++) {
-				ps.Add(new Vector2(i, 0));
-				ps.Add(new Vector2(-i, 0));
-				ps.Add(new Vector2(0, i));
-				ps.Add(new Vector2(0, -i));
+				if(left) {
+					Vector2 relative = new Vector2(i, 0);
+					left = IsMoveable(relative, ps);
+				}
+				if(right) {
+					Vector2 relative = new Vector2(-i, 0);
+					right = IsMoveable(relative, ps);
+				}
+				if(fd) {
+					Vector2 relative = new Vector2(0, i);
+					fd = IsMoveable(relative, ps);
+				}
+				if(bk) {
+					Vector2 relative = new Vector2(0, -i);
+					bk = IsMoveable(relative, ps);
+				}
 			}
 			break;
 		default:
@@ -441,6 +476,16 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		}
 
 		return objs;
+	}
+
+	bool IsMoveable(Vector2 relative, List<Vector2> list) {
+		//list = new List<Vector2> (list);
+		Piece piece = GameBoard.Instance.GetPiece(this.pos + relative);
+		if(piece != null) {
+			if(piece.owner == this.owner) return false;
+		}
+		list.Add(relative);
+		return true;
 	}
 
 	GameObject InstantiateMoveableArea(Transform parent, Vector2 p) {
