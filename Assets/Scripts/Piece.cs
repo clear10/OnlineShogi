@@ -3,8 +3,57 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections;
 using System.Collections.Generic;
+using MiniJSON;
 
 public class Piece : MonoBehaviour, IPointerClickHandler {
+	void Start() {
+		Debug.Log ("start");
+		Init ();
+	}
+	
+	void Init() {
+		Debug.Log ("Init");
+		string jsonText = (Resources.Load<TextAsset> ("piece/fu")).text;
+		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
+		string regularPath = (true) ? json ["uprightRegular"].ToString () : json ["reverseRegular"].ToString ();
+		Sprite sp = Resources.Load<Sprite> (regularPath);
+		Image image = GetComponent<Image> ();
+		image.sprite = sp;
+		int x = System.Convert.ToInt32 (json ["originX"]);
+		int y = System.Convert.ToInt32 (json ["originY"]);
+		IList moves = json ["move"] as IList;
+		int i = 0;
+		int j = 0;
+		List<Vector2> area = new List<Vector2> ();
+		foreach (object line in moves) {
+			IList row = line as IList;
+			j = 0;
+			foreach(object cell in row) {
+				int num = System.Convert.ToInt32(cell);
+				//Debug.Log(num);
+				//Debug.Log(string.Format("i: {0}, j: {1}, x: {2}, y: {3}", i, j, x, y));
+				int defX = j-x;
+				int defY = i-y;
+				int posX = 0;
+				int posY = 0;
+				while(num > 0) {
+					posX += defX;
+					posY += defY;
+					Vector2 pos = new Vector2(posX, posY);
+					Debug.Log(pos);
+					area.Add(pos);
+					num--;
+				}
+				j++;
+			}
+			i++;
+		}
+	}
+	
+	public void OnPointerClick(PointerEventData eventData) {
+	}
+
+	/**
 
 	public enum Kind {
 		fu,
@@ -260,23 +309,6 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		}
 
 		DestroyAllChildren ();
-			/**
-			DestroyAllChildren ();
-			if(this.gameObject == eventData.pointerEnter) return;
-			Vector2 p;
-
-
-			if(eventData.pointerEnter.GetComponent<Piece>() == null) {
-				RectTransform r1 = eventData.pointerEnter.GetComponent<RectTransform>();
-				RectTransform r2 = this.GetComponent<RectTransform>();
-				p = GetTilePosition(r1.anchoredPosition + r2.anchoredPosition);
-			} else {
-				RectTransform r = eventData.pointerEnter.GetComponent<RectTransform>();
-				p = GetTilePosition(r.anchoredPosition);
-			}
-			Debug.Log(p);
-			Move(p);
-			**/
 	}
 
 	public Vector2 GetTilePosition(Vector2 rp) {
@@ -526,5 +558,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		if (s == "MoveableAreas")
 			Destroy (target.gameObject);
 	}
+
+	**/
 
 }

@@ -1,0 +1,13 @@
+{
+	"uprightRegular": "60x64/sgl08",
+	"uprightPromoted": "60x64/sgl28",
+	"reverseRegular": "60x64/sgl38",
+	"reversePromoted": "60x64/sgl58",
+	"originX": 1,
+	"originY": 1,
+	"move": [
+		[0, 1, 0],
+		[0, 0, 0],
+		[0, 0, 0],
+	]
+}
