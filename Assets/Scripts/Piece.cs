@@ -370,28 +370,28 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		Vector2 p = Vector2.zero;
 		switch (w) {
 		case Way.ForwardLeft:
-			p = new Vector2(-1, 1);
+			p = new Vector2(1, -1);
 			break;
 		case Way.Forward:
-			p = new Vector2(0, 1);
-			break;
-		case Way.ForwardRight:
-			p = new Vector2(1, 1);
-			break;
-		case Way.Left:
-			p = new Vector2(-1, 0);
-			break;
-		case Way.Right:
-			p = new Vector2(1, 0);
-			break;
-		case Way.BackwardLeft:
-			p = new Vector2(-1, -1);
-			break;
-		case Way.Backward:
 			p = new Vector2(0, -1);
 			break;
+		case Way.ForwardRight:
+			p = new Vector2(-1, -1);
+			break;
+		case Way.Left:
+			p = new Vector2(1, 0);
+			break;
+		case Way.Right:
+			p = new Vector2(-1, 0);
+			break;
+		case Way.BackwardLeft:
+			p = new Vector2(1, 1);
+			break;
+		case Way.Backward:
+			p = new Vector2(0, 1);
+			break;
 		case Way.BackwardRight:
-			p = new Vector2(1, -1);
+			p = new Vector2(-1, 1);
 			break;
 		default:
 			break;
@@ -407,13 +407,13 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		List<Vector2> ps = new List<Vector2> ();
 		switch (w) {
 		case Way.FForwardSide:
-			ps.Add(new Vector2(-1, 2));
-			ps.Add(new Vector2(1,  2));
+			ps.Add(new Vector2(-1, -2));
+			ps.Add(new Vector2(1,  -2));
 			break;
 		case Way.ForwardLine:
 			bool fw = true;
 			for(int y = 1; y < 10; y++) {
-				Vector2 relative = new Vector2(0, y);
+				Vector2 relative = new Vector2(0, -y);
 				fw = IsMoveable(relative, ps);
 				if(!fw) break;
 			}
@@ -424,20 +424,21 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 			bool bl = true;
 			bool br = true;
 			for(int i= 1; i < 10; i++) {
+				Vector2 relative;
 				if(fr) {
-					Vector2 relative = new Vector2(i, i);
+					relative = new Vector2(-i, -i);
 					fr = IsMoveable(relative, ps);
 				}
 				if(fl) {
-					Vector2 relative = new Vector2(-i, i);
+					relative = new Vector2(i, -i);
 					fl = IsMoveable(relative, ps);
 				}
 				if(br) {
-					Vector2 relative = new Vector2(i, -i);
+					relative = new Vector2(-i, i);
 					br = IsMoveable(relative, ps);
 				}
 				if(bl) {
-					Vector2 relative = new Vector2(-i, -i);
+					relative = new Vector2(i, i);
 					bl = IsMoveable(relative, ps);
 				}
 			}
@@ -448,20 +449,21 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 			bool fd = true;
 			bool bk = true;
 			for(int i = 1; i<10; i++) {
+				Vector2 relative;
 				if(left) {
-					Vector2 relative = new Vector2(i, 0);
+					relative = new Vector2(i, 0);
 					left = IsMoveable(relative, ps);
 				}
 				if(right) {
-					Vector2 relative = new Vector2(-i, 0);
+					relative = new Vector2(-i, 0);
 					right = IsMoveable(relative, ps);
 				}
 				if(fd) {
-					Vector2 relative = new Vector2(0, i);
+					relative = new Vector2(0, -i);
 					fd = IsMoveable(relative, ps);
 				}
 				if(bk) {
-					Vector2 relative = new Vector2(0, -i);
+					relative = new Vector2(0, i);
 					bk = IsMoveable(relative, ps);
 				}
 			}
@@ -481,8 +483,10 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	}
 
 	bool IsMoveable(Vector2 relative, List<Vector2> list) {
-		//list = new List<Vector2> (list);
-		Piece piece = GameBoard.Instance.GetPiece(this.pos + relative);
+		Vector2 p = relative;
+		if (!owner.IsFirst)
+			p *= -1;
+		Piece piece = GameBoard.Instance.GetPiece(this.pos + p);
 		if(piece != null) {
 			if(piece.owner == this.owner) return false;
 		}
@@ -493,7 +497,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	GameObject InstantiateMoveableArea(Transform parent, Vector2 p) {
 		if (!owner.IsFirst)
 			p *= -1;
-		Vector2 target = this.pos - p;
+		Vector2 target = this.pos + p;
 		if (target.x < 1 || target.x > 9)
 			return null;
 		if (target.y < 1 || target.y > 9)
