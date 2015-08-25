@@ -6,6 +6,30 @@ using System.Collections.Generic;
 using MiniJSON;
 
 public class Piece : MonoBehaviour, IPointerClickHandler {
+
+	[SerializeField] TextAsset jsonFile;
+	[SerializeField] GameObject guidePrefab;
+
+	public Transform origin;
+	public float sizeX;
+	public float sizeY;
+
+	public Vector2 tile;
+
+	UserInfo owner;
+
+	int id;
+	bool isPromoted;
+	bool canPromote;
+	bool isSelected;
+	bool isOnBoard;
+
+	public int ID{ get { return id; } }
+	public bool IsPromoted{ get { return isPromoted; } }
+	public bool IsSelected{ get { return isSelected; } }
+	public bool OnBoard{ get { return isOnBoard; } }
+	public Vector2 Tile{ get { return tile; } }
+
 	void Start() {
 		Debug.Log ("start");
 		Init ();
@@ -13,44 +37,210 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	
 	void Init() {
 		Debug.Log ("Init");
-		string jsonText = (Resources.Load<TextAsset> ("piece/fu")).text;
+		isPromoted = false;
+		isSelected = false;
+		isOnBoard = true;
+		if (jsonFile == null)
+			return;
+		string jsonText = jsonFile.text;
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
-		string regularPath = (true) ? json ["uprightRegular"].ToString () : json ["reverseRegular"].ToString ();
+		
+		//owner = GameLogic.Instance.Debug1 ();
+		tile = GetTilePosition (transform.localPosition);
+
+		string regularPath = owner.IsFirst ? json ["uprightRegular"].ToString () : json ["reverseRegular"].ToString ();
 		Sprite sp = Resources.Load<Sprite> (regularPath);
 		Image image = GetComponent<Image> ();
 		image.sprite = sp;
-		int x = System.Convert.ToInt32 (json ["originX"]);
-		int y = System.Convert.ToInt32 (json ["originY"]);
-		IList moves = json ["move"] as IList;
+		canPromote = System.Convert.ToBoolean (json ["promote"]);
+	}
+
+	public void SetJsonFile(TextAsset asset) {
+		this.jsonFile = asset;
+	}
+
+	public void SetActive(bool flag) {
+		isOnBoard = flag;
+	}
+	
+	public void OnPointerClick(PointerEventData eventData) {		
+		//if (GameManager.Instance.player.GetRole () == PlayerInfo.Role.Watcher)
+		//	return;
+		//if (!owner.IsTurn)
+		//	return;
+		//if (!GameManager.Instance.player.IsTurn)
+		//	return;
+		//isSelected = !isSelected;
+		if (isSelected) {
+			UnSelect ();
+			return;
+		}
+		Select ();
+	}
+
+	void Promote() {
+		if (!canPromote)
+			return;
+	}
+
+	public void Move(Vector2 at, bool flag = true) {
+		if (!this.OnBoard)
+			return;
+
+		RectTransform rect = GetComponent<RectTransform> ();
+		Vector2 rend = GetRenderPosition (at);
+		if (rect.anchoredPosition == rend)
+			return;
+		
+		CloseGuideArea ();
+		rect.anchoredPosition = rend;
+		
+		GameBoard.Instance.SetPiece (this.Tile, null);
+		tile = at;
+		Piece get = GameBoard.Instance.SetPiece (this);
+
+		if(get != null) {
+			Debug.Log("Piece got!!");
+			get.CloseGuideArea();
+			this.owner.GetPiece(get);
+			get.SetActive(false);
+			get.gameObject.SetActive(false);
+		}
+		
+		if (!flag)
+			return;
+		
+		ShogiNetwork.Instance.UpdatePieces (this, get);
+	}
+	
+	void CloseGuideArea() {		
+		Transform parent = transform.parent;
+		Transform target = parent.GetChild (parent.childCount - 1);
+		string s = target.gameObject.name;
+		if (s != "GuideArea")
+			return;
+		Destroy(target.gameObject);
+	}
+
+	List<Vector2> GetMoveableArea() {
+		string jsonText = jsonFile.text;
+		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
+		string addition = (!isPromoted) ? "Regular" : "Promoted";
+		int x = System.Convert.ToInt32 (json ["originX" + addition]);
+		int y = System.Convert.ToInt32 (json ["originY" + addition]);
+		IList moves = json ["move" + addition] as IList;
 		int i = 0;
 		int j = 0;
 		List<Vector2> area = new List<Vector2> ();
 		foreach (object line in moves) {
 			IList row = line as IList;
 			j = 0;
-			foreach(object cell in row) {
-				int num = System.Convert.ToInt32(cell);
+			foreach (object cell in row) {
+				int num = System.Convert.ToInt32 (cell);
 				//Debug.Log(num);
 				//Debug.Log(string.Format("i: {0}, j: {1}, x: {2}, y: {3}", i, j, x, y));
-				int defX = j-x;
-				int defY = i-y;
+				int defX = j - x;
+				int defY = i - y;
 				int posX = 0;
 				int posY = 0;
-				while(num > 0) {
+				while (num > 0) {
 					posX += defX;
 					posY += defY;
-					Vector2 pos = new Vector2(posX, posY);
-					Debug.Log(pos);
-					area.Add(pos);
+					Vector2 pos = new Vector2 (posX, posY);
+					Debug.Log (pos);
+					Vector2 test = this.Tile + pos;
+					if(test.x < 1 || test.x > 9 || test.y < 1 || test.y > 9) break;
+					if(GameBoard.Instance.GetPiece(test) != null) break;
+					area.Add (pos);
 					num--;
 				}
 				j++;
 			}
 			i++;
 		}
+
+		return area;
+	}
+
+	GameObject ShowGuideArea(List<Vector2> moveable) {
+		if (moveable == null)
+			return null;
+		if (moveable.Count == 0)
+			return null;
+
+		GameObject area = new GameObject ("GuideArea");
+		Transform parent = this.transform.parent;
+		area.transform.SetParent (parent, false);
+
+		foreach (Vector2 pos in moveable) {
+			GameObject go = InstantiateMoveableArea(area.transform, pos);
+			if(go == null) continue;
+			GuideArea guide = go.GetComponent<GuideArea>();
+			guide.RegistPiece(this);
+		}
+
+		return area;
 	}
 	
-	public void OnPointerClick(PointerEventData eventData) {
+	GameObject InstantiateMoveableArea(Transform parent, Vector2 p) {
+		if (!owner.IsFirst)
+			p *= -1;
+		Vector2 target = this.tile + p;
+		if (target.x < 1 || target.x > 9)
+			return null;
+		if (target.y < 1 || target.y > 9)
+			return null;
+		
+		GameObject go;
+		RectTransform rect;
+		go = Instantiate (guidePrefab) as GameObject;
+		rect = go.GetComponent<RectTransform> ();
+		rect.SetParent(parent, false);
+		Vector2 at = GetRenderPosition (this.Tile + p);
+		rect.anchoredPosition = at;
+		GuideArea area = go.GetComponent<GuideArea> ();
+		return go;
+	}
+
+	public Vector2 GetTilePosition(Vector2 rp) {
+		Vector2 pos = new Vector2 (rp.x - origin.localPosition.x, rp.y - origin.localPosition.y);
+		int x = (int)(-pos.x / sizeX);
+		int y = (int)(-pos.y / sizeY);
+		return new Vector2 (x+1, y+1);
+	}
+	
+	public Vector2 GetRenderPosition(Vector2 tp) {
+		int x = (int)tp.x - 1;
+		int y = (int)tp.y - 1;
+		Vector2 pos = new Vector2 (-x * sizeX, -y * sizeY);
+		pos += new Vector2 (origin.localPosition.x, origin.localPosition.y);
+		return (pos);
+	}
+
+	public void Select() {
+		this.isSelected = true;
+		Transform parent = transform.parent;
+		Transform target = parent.GetChild (parent.childCount - 1);
+		string s = target.gameObject.name;
+		if (s == "GuideArea") {
+			if(target.childCount > 0) {
+				GuideArea ga = target.GetChild(0).GetComponent<GuideArea>();
+				ga.Close();
+			}
+			//DestroyAllChildren();
+		}
+		
+		if (guidePrefab == null) {
+			guidePrefab = Resources.Load<GameObject>("MoveableArea");
+		}
+
+		List<Vector2> moveable = GetMoveableArea ();
+		GameObject area = ShowGuideArea (moveable);
+	}
+	
+	public void UnSelect() {
+		this.isSelected = false;
+		CloseGuideArea ();
 	}
 
 	/**

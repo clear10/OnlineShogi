@@ -1,16 +1,16 @@
 {
-	"uprightRegular": "60x64/sgl08",
-	"reverseRegular": "60x64/sgl38",
+	"uprightRegular": "60x64/sgl07",
+	"reverseRegular": "60x64/sgl37",
 	"originXRegular": 1,
 	"originYRegular": 1,
 	"moveRegular": [
-		[0, 1, 0],
+		[0, 8, 0],
 		[0, 0, 0],
 		[0, 0, 0]
 	],
 	"promote": true,
-	"uprightPromoted": "60x64/sgl28",
-	"reversePromoted": "60x64/sgl58",
+	"uprightPromoted": "60x64/sgl27",
+	"reversePromoted": "60x64/sgl57",
 	"originXPromoted": 1,
 	"originYPromoted": 1,
 	"movePromoted": [
