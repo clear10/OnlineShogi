@@ -10,49 +10,65 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	[SerializeField] TextAsset jsonFile;
 	[SerializeField] GameObject guidePrefab;
 
-	public Transform origin;
+	[SerializeField] Transform origin;
 	public float sizeX;
 	public float sizeY;
 
-	public Vector2 tile;
+	Vector2 tile;
 
 	UserInfo owner;
 
 	int id;
+	string kind;
+	string kanji;
 	bool isPromoted;
 	bool canPromote;
 	bool isSelected;
 	bool isOnBoard;
 
 	public int ID{ get { return id; } }
+	public string Kind { get { return kind; } }
+	public string Kanji{ get { return kanji; } }
 	public bool IsPromoted{ get { return isPromoted; } }
 	public bool IsSelected{ get { return isSelected; } }
 	public bool OnBoard{ get { return isOnBoard; } }
+	public UserInfo Owner { get { return owner; } }
 	public Vector2 Tile{ get { return tile; } }
 
 	void Start() {
-		Debug.Log ("start");
+		//Debug.Log ("start");
 		Init ();
 	}
 	
-	void Init() {
-		Debug.Log ("Init");
+	public void Init() {
+		//Debug.Log ("Init");
 		isPromoted = false;
 		isSelected = false;
-		isOnBoard = true;
+		SetActive (true);
 		if (jsonFile == null)
 			return;
 		string jsonText = jsonFile.text;
 		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
 		
 		//owner = GameLogic.Instance.Debug1 ();
-		tile = GetTilePosition (transform.localPosition);
+		//tile = GetTilePosition (transform.localPosition);
+		Move (this.tile, false);
 
 		string regularPath = owner.IsFirst ? json ["uprightRegular"].ToString () : json ["reverseRegular"].ToString ();
 		Sprite sp = Resources.Load<Sprite> (regularPath);
 		Image image = GetComponent<Image> ();
 		image.sprite = sp;
+		kanji = json ["name"].ToString ();
 		canPromote = System.Convert.ToBoolean (json ["promote"]);
+	}
+
+	public Sprite GetPromotedSprite() {		
+		string jsonText = jsonFile.text;
+		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
+
+		string promotedPath = owner.IsFirst ? json ["uprightPromoted"].ToString () : json ["reversePromoted"].ToString ();
+		Sprite sp = Resources.Load<Sprite> (promotedPath);
+		return sp;
 	}
 
 	public void SetJsonFile(TextAsset asset) {
@@ -61,31 +77,143 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 
 	public void SetActive(bool flag) {
 		isOnBoard = flag;
-	}
-	
-	public void OnPointerClick(PointerEventData eventData) {		
-		//if (GameManager.Instance.player.GetRole () == PlayerInfo.Role.Watcher)
-		//	return;
-		//if (!owner.IsTurn)
-		//	return;
-		//if (!GameManager.Instance.player.IsTurn)
-		//	return;
-		//isSelected = !isSelected;
-		if (isSelected) {
-			UnSelect ();
-			return;
-		}
-		Select ();
+		Image image = GetComponent<Image> ();
+		if (!flag)
+			image.enabled = false;
+		else
+			image.enabled = true;
 	}
 
-	void Promote() {
-		if (!canPromote)
+	public void SetOwner (UserInfo user) {
+		owner = user;
+	}
+
+	public void SetID (int id) {
+		this.id = id;
+	}
+
+	public void SetTilePosition (Vector2 pos) {
+		if(pos.x >= 0 && pos.x < 10 && pos.y >= 0 && pos.y < 10)
+			tile = pos;
+	}
+	
+	public void SetTileOrigin(Transform t) {
+		origin = t;
+	}
+
+	public void SetKindName (string s) {
+		kind = s;
+	}
+	
+	public void OnPointerClick(PointerEventData eventData) {
+		UserInfo me = GameLogic.Instance.GetMe ();
+		if (OnBoard) {
+			if (me.GetRole () == UserInfo.Role.Watcher)
+				return;
+			if (!me.IsTurn)
+				return;
+			if (owner.UserId != me.UserId)
+				return;
+			if (Owner.IsActed)
+				return;
+			if (isSelected) {
+				UnSelect ();
+				return;
+			}
+			Select ();
 			return;
+		}
+	}
+
+	public void PieceUpdate (Vector2 at, bool isPromote) {
+		//Debug.LogWarning ("PieceUpdate called");
+		Move(at, false);
+		if(isPromote != this.IsPromoted)
+			Promote();
+	}
+
+	public void PutDown(Vector2 at) {
+		Debug.Log ("Put down! " + at);
+		UserInfo me = GameLogic.Instance.GetMe ();
+		SetOwner (me);
+		SetTilePosition (at);
+		Init ();
+		//SetActive (true);
+		Transform canvas = GameObject.Find("Canvas").transform;
+		string uiname = "MyUI";
+		UIController controller = canvas.FindChild(uiname).GetComponent<UIController>();
+		int value = me.GetHolds (Kind);
+		controller.UpdateUI (Kind, value - 1);
+		ShogiNetwork.Instance.UpdatePieces (this, null);
+		History history = History.Instance;
+		List<Piece> eq = PieceController.Instance.FindMyEqualPieces (this);
+		//bool isExistPieceMoveableSamePlace = false;
+		List<Piece> same = null;
+		if (eq != null) {
+			foreach(Piece p in eq) {
+				if(p.IsMoveable(this.Tile)) {
+					//isExistPieceMoveableSamePlace = true;
+					if(same == null) same = new List<Piece>();
+					same.Add(p);
+				}
+			}
+		}
+		history.Add (this, same);
+		Owner.Act ();
+	}
+
+	public void PickUp() {
+		if (OnBoard)
+			return;
+		List<Vector2> area = GetPutableArea ();
+		ShowGuideArea (area);
+	}
+
+	List<Vector2> GetPutableArea() {
+		string jsonText = jsonFile.text;
+		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
+		int y = System.Convert.ToInt32 (json ["limitArea"]);
+		UserInfo me = GameLogic.Instance.GetMe ();
+		List<Vector2> area = new List<Vector2> ();
+		if (!me.IsFirst) {
+			for (int i=1; i<=9; i++) {
+				for (int j=1; j<=9; j++) {
+					Vector2 pos = new Vector2 (j, i);
+					Piece p = GameBoard.Instance.GetPiece(pos);
+					if(p == null) {
+						area.Add (pos - Tile);
+					}
+				}
+				if (i == 9 - y)
+					break;
+			}
+		} else {			
+			for (int i=9; i>0; i--) {
+				for (int j=1; j<=9; j++) {
+					Vector2 pos = new Vector2 (j, i);
+					Piece p = GameBoard.Instance.GetPiece(pos);
+					if(p == null) {
+						area.Add (pos - Tile);
+					}
+				}
+				if (i == 1 + y)
+					break;
+			}
+		}
+
+		return area;
+	}
+
+	public void Promote() {
+		Image image = GetComponent<Image> ();
+		image.sprite = GetPromotedSprite ();
+		isPromoted = true;
 	}
 
 	public void Move(Vector2 at, bool flag = true) {
-		if (!this.OnBoard)
+		if (!this.OnBoard) {
 			return;
+		}
 
 		RectTransform rect = GetComponent<RectTransform> ();
 		Vector2 rend = GetRenderPosition (at);
@@ -94,23 +222,98 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		
 		CloseGuideArea ();
 		rect.anchoredPosition = rend;
+
+		bool isPutDowned = (GameBoard.Instance.GetPiece (this.Tile) == null);
+
+		Vector2 tmp = Tile;
 		
 		GameBoard.Instance.SetPiece (this.Tile, null);
 		tile = at;
 		Piece get = GameBoard.Instance.SetPiece (this);
 
 		if(get != null) {
-			Debug.Log("Piece got!!");
+			//Debug.Log("Piece got!!");
 			get.CloseGuideArea();
-			this.owner.GetPiece(get);
+			get.SetTilePosition(Vector2.zero);
 			get.SetActive(false);
-			get.gameObject.SetActive(false);
+			this.owner.GetPiece(get);
+			//get.transform.localPosition = new Vector3(1000, 1000, 1000);
+			//get.gameObject.SetActive(false);
+		}
+
+		if ((!owner.IsFirst && (Tile.y >= 7 && Tile.y <= 9)) ||
+		    ( owner.IsFirst && (Tile.y >= 1 && Tile.y <= 3)) ||
+		    (!owner.IsFirst && (tmp.y >= 7 && tmp.y <= 9)) ||
+		    ( owner.IsFirst && (tmp.y >= 1 && tmp.y <= 3)) ) {
+			if(!IsPromoted && canPromote && !isPutDowned) {
+				UserInfo me = GameLogic.Instance.GetMe();
+				if(owner == me) {
+					if(get != null) {
+						if(get.Owner != me) {
+							AskPromotion(get);
+							return;
+						}
+					} else {
+						AskPromotion(null);
+						return;
+					}
+				}
+			}
 		}
 		
 		if (!flag)
 			return;
 		
 		ShogiNetwork.Instance.UpdatePieces (this, get);
+		History history = History.Instance;
+		List<Piece> eq = PieceController.Instance.FindMyEqualPieces (this);
+		//bool isExistPieceMoveableSamePlace = false;
+		List<Piece> same = null;
+		if (eq != null) {
+			foreach(Piece p in eq) {
+				if(p.IsMoveable(this.Tile)) {
+					//isExistPieceMoveableSamePlace = true;
+					if(same == null) same = new List<Piece>();
+					same.Add(p);
+				}
+			}
+		}
+		history.Add (this, same);
+		Owner.Act ();
+	}
+	
+	public void AskPromotion(Piece get) {
+		if(!GameLogic.Instance.IsGameFinish)
+			StartCoroutine (PromotionCoroutine (get));
+	}
+	
+	IEnumerator PromotionCoroutine(Piece get) {
+		//Vector2 pos = this.Tile;
+		PromotionWindow window = PromotionWindow.Show ();
+		window.Init (this);
+		while (PromotionWindow.IsShowing)
+			yield return null;
+		//yield return null;
+
+		//if (Tile != pos) {
+		//	Move(pos, false);
+		//}
+		ShogiNetwork.Instance.UpdatePieces (this, get);
+		History history = History.Instance;		
+		List<Piece> eq = PieceController.Instance.FindMyEqualPieces (this);
+		//bool isExistPieceMoveableSamePlace = false;
+		List<Piece> same = null;
+		if (eq != null) {
+			foreach(Piece p in eq) {
+				if(p.IsMoveable(this.Tile)) {
+					//isExistPieceMoveableSamePlace = true;
+					if(same == null) same = new List<Piece>();
+					same.Add(p);
+				}
+			}
+		}
+		history.Add (this, same);
+		Owner.Act ();
 	}
 	
 	void CloseGuideArea() {		
@@ -120,6 +323,11 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		if (s != "GuideArea")
 			return;
 		Destroy(target.gameObject);
+	}
+
+	public bool IsMoveable(Vector2 at) {
+		List<Vector2> area = GetMoveableArea ();
+		return area.Contains (at);
 	}
 
 	List<Vector2> GetMoveableArea() {
@@ -147,10 +355,18 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 					posX += defX;
 					posY += defY;
 					Vector2 pos = new Vector2 (posX, posY);
-					Debug.Log (pos);
+					//Debug.Log (pos);
+					if(!owner.IsFirst) pos *= -1;
 					Vector2 test = this.Tile + pos;
 					if(test.x < 1 || test.x > 9 || test.y < 1 || test.y > 9) break;
-					if(GameBoard.Instance.GetPiece(test) != null) break;
+					Piece p = GameBoard.Instance.GetPiece(test);
+					if(p != null) {
+						if(p.owner == this.owner) {
+							break;
+						}
+						area.Add(pos);
+						break;
+					}
 					area.Add (pos);
 					num--;
 				}
@@ -183,8 +399,8 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 	}
 	
 	GameObject InstantiateMoveableArea(Transform parent, Vector2 p) {
-		if (!owner.IsFirst)
-			p *= -1;
+		//if (!owner.IsFirst)
+		//	p *= -1;
 		Vector2 target = this.tile + p;
 		if (target.x < 1 || target.x > 9)
 			return null;
@@ -198,7 +414,7 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 		rect.SetParent(parent, false);
 		Vector2 at = GetRenderPosition (this.Tile + p);
 		rect.anchoredPosition = at;
-		GuideArea area = go.GetComponent<GuideArea> ();
+		//GuideArea area = go.GetComponent<GuideArea> ();
 		return go;
 	}
 
@@ -219,23 +435,14 @@ public class Piece : MonoBehaviour, IPointerClickHandler {
 
 	public void Select() {
 		this.isSelected = true;
-		Transform parent = transform.parent;
-		Transform target = parent.GetChild (parent.childCount - 1);
-		string s = target.gameObject.name;
-		if (s == "GuideArea") {
-			if(target.childCount > 0) {
-				GuideArea ga = target.GetChild(0).GetComponent<GuideArea>();
-				ga.Close();
-			}
-			//DestroyAllChildren();
-		}
+		PieceController.Instance.CloseGuideArea ();
 		
 		if (guidePrefab == null) {
 			guidePrefab = Resources.Load<GameObject>("MoveableArea");
 		}
 
 		List<Vector2> moveable = GetMoveableArea ();
-		GameObject area = ShowGuideArea (moveable);
+		ShowGuideArea(moveable); //GameObject area = ShowGuideArea(moveable);
 	}
 	
 	public void UnSelect() {

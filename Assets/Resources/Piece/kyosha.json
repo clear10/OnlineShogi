@@ -1,4 +1,5 @@
 {
+	"name": "香",
 	"uprightRegular": "60x64/sgl07",
 	"reverseRegular": "60x64/sgl37",
 	"originXRegular": 1,
@@ -17,5 +18,6 @@
 		[1, 1, 1],
 		[1, 0, 1],
 		[0, 1, 0]
-	]
+	],
+	"limitArea": 1
 }

@@ -1,4 +1,5 @@
 {
+	"name": "歩",
 	"uprightRegular": "60x64/sgl08",
 	"reverseRegular": "60x64/sgl38",
 	"originXRegular": 1,
@@ -17,5 +18,6 @@
 		[1, 1, 1],
 		[1, 0, 1],
 		[0, 1, 0]
-	]
+	],
+	"limitArea": 1
 }

@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.UI;
 using UnityEngine.Events;
 using System.Collections;
 using System.Collections.Generic;
@@ -6,7 +7,7 @@ using MiniJSON;
 
 public class ShogiNetwork : MonoBehaviour {
 
-	const string server = "http://192.168.3.83:3000/";
+	const string server = "http://192.168.3.83:3002/";
 	
 	static ShogiNetwork instance;
 	
@@ -28,20 +29,30 @@ public class ShogiNetwork : MonoBehaviour {
 			instance = this;
 	}
 
-	public void JoinRoom(string name, string room) {
+	public void JoinRoom(LobbyController controller) {
+		Debug.Log ("Join room");
+		string name = controller.NameText;
+		string room = controller.RoomText;
+		JoinRoom (name, room);
+	}
+
+	void JoinRoom(string name, string room) {
 		logic = GameLogic.Instance;
 		int no = 0;
 		if(int.TryParse(room, out no))
-			StartCoroutine (LogIn (name, no));
+			StartCoroutine (LogIn (name, no, logic.GoSceneMain));
 	}
 	
 	public void LeaveRoom() {
 		StopAllCoroutines ();
-		//StartCoroutine (LogOut ());
+		UserInfo me = GameLogic.Instance.GetMe ();
+		GameLogic logic = GameLogic.Instance;
+		StartCoroutine (LogOut(me.PlayId, me.UserId, logic.GoSceneLogin));
 	}
 
 	public void UpdatePieces(Piece target, Piece get = null) {
-		//StartCoroutine (UpdatePieceCoroutine (target, get));
+		UserInfo me = GameLogic.Instance.GetMe ();
+		StartCoroutine (UpdatePieceCoroutine (target, me.PlayId, me.UserId, get));
 	}
 	
 	IEnumerator LogIn(string name, int room, UnityAction<string> call = null) {
@@ -93,156 +104,42 @@ public class ShogiNetwork : MonoBehaviour {
 		Debug.Log (www.text);
 	}
 
-	IEnumerator RequestServer(string req, UnityAction<string> call = null) {		
+	IEnumerator RequestServer (string req, UnityAction<Dictionary<string, object>> call = null) {
 		WWW www = new WWW (server + req);
 		yield return www;
 
 		Debug.Log (www.text);
-		if(call != null)
-			call (www.text);
+		if(call == null) yield break;
+		Dictionary<string, object> dict = ConvertJSON2Dictionary(www.text);
+		call(dict);
 	}
 
-	public void GetRoomState(int playId) {
+	public void GetRoomState(int playId, UnityAction<Dictionary<string, object>> call = null) {
 		string req = "plays/" + playId.ToString() + "/state";
-		StartCoroutine (RequestServer (req, ParseRoomState));
-	}
-	
-	public void GetUserInfo(int playId) {
-		string req = "plays/" + playId.ToString() + "/users";
-		StartCoroutine (RequestServer (req, ParseUserInfo));
-	}
-	
-	public void GetBattleInfo(int playId) {
-		string req = "plays/" + playId.ToString();
-		StartCoroutine (RequestServer (req, ParseBattleInfo));
+		StartCoroutine (RequestServer (req, call));
 	}
 
-	public void GetWinner(int playId) {
+	public void GetUserInfo (int playId, UnityAction<Dictionary<string, object>> call = null) {
+		string req = "plays/" + playId.ToString() + "/users";
+		StartCoroutine(RequestServer(req, call));
+	}
+
+	public void GetBattleInfo (int playId, UnityAction<Dictionary<string, object>> call = null) {
+		string req = "plays/" + playId.ToString();
+		StartCoroutine(RequestServer(req, call));
+	}
+
+	public void GetWinner (int playId, UnityAction<Dictionary<string, object>> call = null) {
 		string req = "plays/" + playId.ToString() + "/winner";
-		StartCoroutine (RequestServer (req));
+		StartCoroutine(RequestServer(req, call));
 	}
-	
-	public void GetPiecesInfo(int playId) {
+
+	public void GetPiecesInfo (int playId, UnityAction<Dictionary<string, object>> call = null) {
 		string req = "plays/" + playId.ToString() + "/pieces";
-		StartCoroutine (RequestServer (req, ParsePieces));
+		StartCoroutine(RequestServer(req, call));
 	}
-	
-	void ParseRoomState(string jsonText) {
-		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
-		string state = json ["state"].ToString ();
-		Debug.Log (state);
-		int n = (state == "playing") ? 2 : 1;
-		logic.OnFinishParsingRoomState (n);
-	}
-	
-	void ParseUserInfo(string jsonText) {
-		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
-		Dictionary<string, object> info = (Dictionary<string, object>)json ["first_player"];
-		int id = System.Convert.ToInt32 (info ["user_id"]);
-		string rivalName;
-		int rivalId;
-		if (player.UserId == id) {
-			player.SetOrder (true);
-			info = (Dictionary<string, object>)json["last_player"];
-			rivalId = System.Convert.ToInt32 (info ["user_id"]);
-			rivalName = info["name"].ToString();
-		} else {
-			player.SetOrder (false);
-			rivalId = id;
-			rivalName = info["name"].ToString();
-			info = (Dictionary<string, object>)json["last_player"];
-			player.SetName(info["name"].ToString());
-		}
-		CreateRivalInfo (rivalId, player.PlayId, rivalName, !player.IsFirst);
-	}
-	
-	void CreateRivalInfo(int userId, int playId, string name, bool isFirst) {
-		rival = new PlayerInfo (userId, playId, 2, 1);
-		rival.SetOrder (isFirst);
-		rival.SetName (name);
-	}
-	
-	void ParseBattleInfo(string jsonText) {
-		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
-		if (json ["state"].ToString () == "finish" || json["state"].ToString() == "exit") {
-			IsGameFinish = true;
-		}
-		int id = System.Convert.ToInt32 (json ["turn_player"]);
-		if (id == player.UserId) {
-			player.SetTurn(true);
-			rival.SetTurn(false);
-			//isTurnChanged = true;
-			return;
-		} else if (id == rival.UserId) {
-			player.SetTurn(false);
-			rival.SetTurn(true);
-			//isTurnChanged = true;
-			return;
-		}
-		
-		//isTurnChanged = false;
-	}
-	
-	void ParsePieces(string jsonText) {
-		
-		var json = Json.Deserialize (jsonText) as Dictionary<string, object>;
-		bool flag = pieces.Count == 0;
-		if (banRect == null) 
-			banRect = GameObject.Find ("Canvas").transform.GetChild (0).GetChild (0).GetComponent<RectTransform> ();
-		
-		for (int i=1; i<=40; i++) {
-			object o = json[i.ToString()];
-			Dictionary<string, object> piece = (Dictionary<string, object>)o;
-			
-			string name = piece["name"].ToString();
-			float x = System.Convert.ToSingle(piece["posx"]);
-			float y = System.Convert.ToSingle(piece["posy"]);
-			Vector2 pos = new Vector2(x, y);
-			bool isPromote = System.Convert.ToBoolean(piece["promote"]);
-			//bool isMine = false;
-			int id = System.Convert.ToInt32(piece["owner"]);
-			if(i == 1 && flag) {
-				if(id == rival.UserId) {
-					GameObject canvas = GameObject.Find("Canvas");
-					Transform screen = canvas.transform.GetChild(0);
-					screen.Rotate(0, 0, 180f);
-				}
-			}
-			PlayerInfo owner = null;
-			if(id == player.UserId) owner = player;
-			if(id == rival.UserId)  owner = rival;
-			if(owner == null) {
-				Debug.LogError("Error!! " + i);
-			}
-			//if(id == player.UserId) isMine = true;
-			//if(player.GetRole() == PlayerInfo.Role.Watcher) {
-			//	if(i==1) first = id;
-			//	if(first == id) isMine = true;
-			//}
-			if(flag) {
-				GameObject go = Instantiate(piecePrefab) as GameObject;
-				RectTransform rect = go.GetComponent<RectTransform>();
-				rect.SetParent(banRect, false);
-				Piece p = go.GetComponent<Piece>();
-				p.RegistOwner(owner);
-				p.SetID(i);
-				p.Set(name, pos, isPromote);
-				pieces.Add(p);
-			} else {
-				Piece p = pieces[i-1];
-				if(p.Active) {
-					p.Set(pos, isPromote);
-					if(pos == Vector2.zero) {
-						p.Active = false;
-						p.gameObject.SetActive(false);
-						rival.GetPiece(p);
-						//continue;
-					}
-				}
-			}
-		}
-		if (flag)
-			GameBoard.Instance.Init (pieces);
-		
+
+	Dictionary<string, object> ConvertJSON2Dictionary (string json) {
+		return (Json.Deserialize(json) as Dictionary<string, object>);
 	}
 }

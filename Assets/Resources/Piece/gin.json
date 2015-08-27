@@ -1,4 +1,5 @@
 {
+	"name": "銀",
 	"uprightRegular": "60x64/sgl05",
 	"reverseRegular": "60x64/sgl35",
 	"originXRegular": 1,
@@ -17,5 +18,6 @@
 		[1, 1, 1],
 		[1, 0, 1],
 		[0, 1, 0]
-	]
+	],
+	"limitArea": 0
 }

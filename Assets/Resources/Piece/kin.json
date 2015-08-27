@@ -1,4 +1,5 @@
 {
+	"name": "金",
 	"uprightRegular": "60x64/sgl04",
 	"reverseRegular": "60x64/sgl34",
 	"originXRegular": 1,
@@ -17,5 +18,6 @@
 		[1, 1, 1],
 		[1, 0, 1],
 		[0, 1, 0]
-	]
+	],
+	"limitArea": 0
 }

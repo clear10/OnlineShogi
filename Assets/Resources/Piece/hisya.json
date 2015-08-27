@@ -1,4 +1,5 @@
 {
+	"name": "飛",
 	"uprightRegular": "60x64/sgl02",
 	"reverseRegular": "60x64/sgl32",
 	"originXRegular": 1,
@@ -17,5 +18,6 @@
 		[1, 8, 1],
 		[8, 0, 8],
 		[1, 8, 1]
-	]
+	],
+	"limitArea": 0
 }

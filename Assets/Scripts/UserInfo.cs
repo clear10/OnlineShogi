@@ -1,5 +1,6 @@
 ﻿using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class UserInfo {
 	
@@ -26,13 +27,16 @@ public class UserInfo {
 	Role role;
 	bool isFirst;
 	bool isTurn;
-	
-	int[] holds = new int[7]{0, 0, 0, 0, 0, 0, 0};
+	bool isActed;
+
+	Dictionary<string, int> holds;
+	UIController ui;
 	
 	public int UserId{ get { return userId; } }
 	public int PlayId{ get { return playId; } }
 	public bool IsFirst{ get { return isFirst; } }
 	public bool IsTurn{ get { return isTurn; } }
+	public bool IsActed{ get { return isActed; } }
 	public string Name{ get { return name; } }
 	
 	public State GetState() {
@@ -52,39 +56,74 @@ public class UserInfo {
 	public void SetName(string s) {
 		this.name = s;
 	}
-	
-	public void GetPiece(Piece p) {
-		/**
-		int num = 0;
-		Piece.Kind k = p.kind;
-		switch (k) {
-		case Piece.Kind.fu:
-			num = ++holds[0];
-			break;
-		case Piece.Kind.kyosha:
-			num = ++holds[1];
-			break;
-		case Piece.Kind.keima:
-			num = ++holds[2];
-			break;
-		case Piece.Kind.gin:
-			num = ++holds[3];
-			break;
-		case Piece.Kind.kin:
-			num = ++holds[4];
-			break;
-		case Piece.Kind.hisya:
-			num = ++holds[5];
-			break;
-		case Piece.Kind.kaku:
-			num = ++holds[6];
-			break;
-		default:
-			break;
+
+	public void SetOrder (bool isFirst) {
+		this.isFirst = isFirst;
+	}
+
+	public void SetTurn (bool flag) {
+		isTurn = flag;
+		isActed = !flag;
+	}
+
+	public void AddPieceKind (string key) {
+		int value = 0;
+		if(holds.ContainsKey(key)) return;
+		holds.Add(key, value);
+	}
+
+	public void Act() {
+		isActed = true;
+	}
+
+	void GetPiece (string key) {
+		if(!holds.ContainsKey(key)) return;
+		holds[key]++;
+		ui.UpdateUI (key, holds [key]);
+	}
+
+	public void InitHolds() {
+		List<string> keyList = new List<string>(holds.Keys);
+		Transform canvas = GameObject.Find("Canvas").transform;
+		UserInfo me = GameLogic.Instance.GetMe ();
+		string uiname;
+		if (me.GetRole () != Role.Player || me.isFirst) {
+			uiname = (this.IsFirst) ? "MyUI" : "YourUI";
+		} else {
+			uiname = this.IsFirst ? "YourUI" : "MyUI";
+		}
+		//Debug.Log ((me == this).ToString() + ", " + uiname);
+		UIController controller = canvas.FindChild(uiname).GetComponent<UIController>();
+		ui = controller;
+		foreach (string key in keyList) {
+			holds[key] = 0;
+			ui.UpdateUI (key, holds [key]);
 		}
 		
-		ui.UpdateUI (k, num);
-		**/
+		//ui.RefreshAll ();
+	}
+
+	public int GetHolds(string kind) {
+		if (holds.ContainsKey (kind))
+			return holds [kind];
+		return 0;
+	}
+	
+	public void GetPiece(Piece p) {
+		Transform canvas = GameObject.Find("Canvas").transform;
+		UserInfo me = GameLogic.Instance.GetMe ();
+		//string uiname = (p.Owner != this) ? "MyUI" : "YourUI";
+		string uiname;
+		if (me.GetRole () == Role.Player) {
+			uiname = (me == p.Owner) ? "YourUI" : "MyUI";
+		} else {
+			uiname = p.Owner.IsFirst ? "MyUI" : "YourUI";
+		}
+		UIController controller = canvas.FindChild(uiname).GetComponent<UIController>();
+		ui = controller;
+		string key = p.Kind;
+		Debug.Log (this.name + " Get!-> " + p.ID);
+		GetPiece(key);
 	}
 	
 	public UserInfo() {
@@ -103,14 +142,7 @@ public class UserInfo {
 		this.role = (Role)role;
 		this.isFirst = false;
 		this.isTurn = false;
-	}
-	
-	public void SetOrder(bool isFirst) {
-		this.isFirst = isFirst;
-	}
-	
-	public void SetTurn(bool flag) {
-		isTurn = flag;
+		holds = new Dictionary<string, int>();
 	}
 	
 	public string Dump() {

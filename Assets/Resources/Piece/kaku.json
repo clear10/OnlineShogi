@@ -1,4 +1,5 @@
 {
+	"name": "角",
 	"uprightRegular": "60x64/sgl03",
 	"reverseRegular": "60x64/sgl33",
 	"originXRegular": 1,
@@ -17,5 +18,6 @@
 		[8, 1, 8],
 		[1, 0, 1],
 		[8, 1, 8]
-	]
+	],
+	"limitArea": 0
 }

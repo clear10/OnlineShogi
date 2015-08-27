@@ -27,12 +27,15 @@ public class GuideArea : MonoBehaviour, IPointerClickHandler {
 		}
 
 		RectTransform rect = piece.GetComponent<RectTransform> ();
-		Vector2 piecePosition = rect.anchoredPosition;
 		rect = this.GetComponent<RectTransform> ();
-		Vector2 at = rect.anchoredPosition; // + piecePosition;
+		Vector2 at = rect.anchoredPosition;
 		Vector2 tile = piece.GetTilePosition (at);
 		Close ();
-		piece.Move (tile, false);
+		if (!piece.OnBoard) {
+			piece.PutDown(tile);
+			return;
+		}
+		piece.Move (tile, true);
 	}
 	
 	public void Close() {

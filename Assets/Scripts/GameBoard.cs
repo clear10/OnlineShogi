@@ -39,6 +39,7 @@ public class GameBoard : MonoBehaviour {
 	}
 	
 	public void Init(List<Piece> pieces) {
+		table = new Piece[9*9];
 		foreach (Piece p in pieces) {
 			SetPiece(p);
 		}
