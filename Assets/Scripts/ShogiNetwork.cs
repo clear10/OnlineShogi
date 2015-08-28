@@ -47,6 +47,10 @@ public class ShogiNetwork : MonoBehaviour {
 		StopAllCoroutines ();
 		UserInfo me = GameLogic.Instance.GetMe ();
 		GameLogic logic = GameLogic.Instance;
+		if (me.GetRole () == UserInfo.Role.Watcher) {
+			logic.GoSceneLogin(null);
+			return;
+		}
 		StartCoroutine (LogOut(me.PlayId, me.UserId, logic.GoSceneLogin));
 	}
 

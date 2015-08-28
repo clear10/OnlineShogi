@@ -28,6 +28,7 @@ public class UserInfo {
 	bool isFirst;
 	bool isTurn;
 	bool isActed;
+	bool isWon;
 
 	Dictionary<string, int> holds;
 	UIController ui;
@@ -37,6 +38,7 @@ public class UserInfo {
 	public bool IsFirst{ get { return isFirst; } }
 	public bool IsTurn{ get { return isTurn; } }
 	public bool IsActed{ get { return isActed; } }
+	public bool IsWon{ get { return isWon; } }
 	public string Name{ get { return name; } }
 	
 	public State GetState() {
@@ -74,6 +76,10 @@ public class UserInfo {
 
 	public void Act() {
 		isActed = true;
+	}
+
+	public void Win () {
+		isWon = true;
 	}
 
 	void GetPiece (string key) {
@@ -125,7 +131,9 @@ public class UserInfo {
 		Debug.Log (this.name + " Get!-> " + p.ID);
 		GetPiece(key);
 	}
-	
+
+	/**
+	 * 
 	public UserInfo() {
 		this.userId = -1;
 		this.playId = -1;
@@ -134,6 +142,8 @@ public class UserInfo {
 		this.isFirst = false;
 		this.isTurn = false;
 	}
+	*
+	*/
 	
 	public UserInfo(int userId, int playId, int state, int role) {
 		this.userId = userId;
@@ -142,6 +152,7 @@ public class UserInfo {
 		this.role = (Role)role;
 		this.isFirst = false;
 		this.isTurn = false;
+		this.isWon = false;
 		holds = new Dictionary<string, int>();
 	}
 	

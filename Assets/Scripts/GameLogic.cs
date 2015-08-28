@@ -96,6 +96,8 @@ public class GameLogic : MonoBehaviour {
 		StartCoroutine (Wait4Result ());
 	}
 
+	/**
+	 * 
 	IEnumerator Wait4Logout() {
 		int level = Application.loadedLevel;
 		while (Application.loadedLevel == level) {
@@ -106,11 +108,20 @@ public class GameLogic : MonoBehaviour {
 		History history = History.Instance;
 		Debug.Log (history.Dump ());
 	}
+	*
+	*/
 
 	IEnumerator Wait4Result() {
 		yield return new WaitForSeconds (0.2f);
 		ResultText result = ResultText.Instance;
-		result.Show (isWinner, isRivalExit);
+		UserInfo user = null;
+		if (isWinner)
+			user = me;
+		else {
+			if(first.IsWon) user = first;
+			if(last.IsWon) user = last;
+		}
+		result.Show (user, isRivalExit);
 		History history = History.Instance;
 		Debug.Log (history.Dump ());
 	}
@@ -133,13 +144,21 @@ public class GameLogic : MonoBehaviour {
 		History history = History.Instance;
 		history.Init ();
 
+		bool isPlayer = me.GetRole () == UserInfo.Role.Player;
+
 		while(!IsGameFinish) {
-			if((!PromotionWindow.IsShowing) && isTurnChanged) {
+			if(isPlayer) {
+				if((!PromotionWindow.IsShowing) && isTurnChanged) {
+					network.GetPiecesInfo(me.PlayId, ParsePieces);
+					isTurnChanged = false;
+				}
+				network.GetBattleInfo(me.PlayId, ParseBattleInfo);
+				yield return new WaitForSeconds(1f);
+			} else {
 				network.GetPiecesInfo(me.PlayId, ParsePieces);
-				isTurnChanged = false;
+				network.GetBattleInfo(me.PlayId, ParseBattleInfo);
+				yield return new WaitForSeconds(1f);
 			}
-			network.GetBattleInfo(me.PlayId, ParseBattleInfo);
-			yield return new WaitForSeconds(1f);
 		}
 	}
 
@@ -221,11 +240,25 @@ public class GameLogic : MonoBehaviour {
 			OnRivalExit();
 			return;
 		}
-		int id = System.Convert.ToInt32(json["turn_player"]);
-		if (id == GetTurnPlayer ().UserId)
-			return;
+		int id = System.Convert.ToInt32 (json ["turn_player"]);
+		int turn = System.Convert.ToInt32 (json ["turn_count"]);
+		int watcher = System.Convert.ToInt32 (json ["watcher_count"]);
+		
+		BattleInfoPanel panel = BattleInfoPanel.Instance;
+		if (panel.Watcher < watcher) {
+			panel.IncreaseWatcher();
+			if(!NoticePanel.IsShowing)
+				NoticePanel.Show();
+		}
+		if (id == GetTurnPlayer ().UserId) {
+			if (!panel.Inited) {
+				panel.SetPanel (GetTurnPlayer ().Name, turn);
+				return;
+			}
+		}
 
 		isTurnChanged = true;
+		panel.SetPanel (GetTurnPlayer ().Name, turn);
 
 		if(id == first.UserId) {
 			first.SetTurn(true);
@@ -251,10 +284,21 @@ public class GameLogic : MonoBehaviour {
 		
 	void ParseWinner (Dictionary<string, object> json) {
 		int id = System.Convert.ToInt32 (json ["winner"]);
-		if (me.UserId == id) {
-			isWinner = true;
+		if (me.GetRole () == UserInfo.Role.Player) {
+			if (me.UserId == id) {
+				isWinner = true;
+				me.Win();
+			} else {
+				isWinner = false;
+				UserInfo user = (me.IsFirst) ? last : first;
+				user.Win();
+			}
 		} else {
-			isWinner = false;
+			if(first.UserId == id) {
+				first.Win();
+			} else if(last.UserId == id) {
+				last.Win();
+			}
 		}
 		GoSceneResult ();
 	}
